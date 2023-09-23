@@ -1,0 +1,667 @@
+#Authors: Rashad and Swalah Ridwan?
+#ICS Black Jack
+#Due May 31
+#Best screen size:610x410 (master geometry for all windows is 600x400)
+# Purpose of the game is to entertain bored people. They will start of with 3 souls and be required to bet their souls in order to win. They need 7 or more souls to win. If they lose all their souls, they die. Game follows classical rules of blackjack. (Try not to go over 21)
+
+#import 
+from tkinter import Tk, Label, Button, Entry, Frame, PhotoImage, Toplevel
+from card import card
+import random 
+
+#set up to calculate total souls
+souls = [3]
+souls_lost = []
+
+
+#intro/ first tab
+class Intro(object):
+    def __init__(self, master):
+        #setting as master 
+        self.master = master
+        master.title("Life Or Death")
+        master.geometry("600x400")
+      
+        #Create background image 
+        self.img = PhotoImage(file="images/und.png")
+        self.img = self.img.subsample(1, 1)
+        self.background = Label(master,image=self.img)
+        self.background.photo = self.img
+        self.background.place(x=-1,y=0)
+        
+        #rules
+        self.label_rules = Label(master,text ="""Rules: 
+ Obtain 7 souls to leave.  Try to figure  
+ out the rest before you die :p. \n ALT + f4 to quit  """, font = "Times 8 italic",bg="white")
+        self.label_rules.place(x=2,y=330)    
+        
+        #setting up yes button that takes them into game
+        self.button_yes = Button(master,text = "Yes", command = self.new_window, font= "Times 14 italic", bg="white",fg="green",activebackground="gray")
+        self.button_yes.place(x= 12, y= 95)
+        
+        #no button also takes them into the game :)
+        self.button_no = Button(master,text = "No",command = self.new_window, font= "Times 14 italic", bg="white",fg="green",activebackground="gray")
+        self.button_no.place(x= 151, y = 95)
+        self.button_no.config(state = 'normal')    
+
+#Functions
+        
+    #making no button move around the screen
+        def move(x,y):
+          if x<660:         
+            self.button_no.place(x=x, y=y)
+            self.button_no.after(1000, lambda: move(random.randint(100,300),random.randint(1,360)))    
+        move(0,0)
+        
+    #fuction to open blackjack new window from a press of a button
+    def new_window(self):       
+      self.newWindow = Toplevel(self.master)
+      self.app = BabyBlackJack(self.newWindow)
+      self.master.iconify()
+
+
+        
+#blackjack code
+class BabyBlackJack(object):    
+
+  def __init__(self, master):
+
+        #setting up background and master (nothing fancy)
+        img = PhotoImage(file="images/black-bg.png")
+        self.master = master
+        self.background = Label(master,image=img)
+        self.background.photo = img
+        self.background.place(x=-5, y=0) 
+        master.geometry("600x400")
+        master.title("The Trial ")
+       
+        #variables
+        self.player_points = []
+        self.dealer_points = []
+        self.cards = ["c","d","s","h"]
+        self.souls_total = sum(souls) - sum(souls_lost)
+        #set up deck
+        self.hand1 = []
+        self.hand2 = []
+        self.deck1 = []
+        self.deck2 = []
+        self.player_sum = 0
+        self.cardlabels = []
+
+        #get list of cards and shuffle
+        for letter in ["c","d","s","h"]:
+              for number in range (1,14):
+                filename = "cards//%s%s.png" %(number,letter)
+                value = number
+                self.deck1.append(card(filename,value))
+                self.deck2.append(card(filename,value))
+        
+        random.shuffle(self.deck1)
+        random.shuffle(self.deck2)
+
+
+        #showing amount of souls 
+        self.label_souls = Label(master, text=" Souls: ",font = "Times 14 italic",bg="white")
+        self.label_souls.place(x=10,y=10)
+        self.souls_amount = Label(master, text = " %d " %self.souls_total, font = "Times 14 italic",bg="white")
+        self.souls_amount.place(x=80,y=10)
+      
+        #Box to input # of souls you will gamble     
+        self.soul_gamble = Entry(master,bg="light gray",bd=7,font="Times 9 italic",fg="red",width=10)
+        self.soul_gamble.place(x = 220, y = 150)
+
+        #Button that runs command and starts actul game
+        self.play_button = Button(master, text = "Play", command = self.new_window, font= "Times 12 italic", bg="white",fg="green",activebackground="gray")
+        self.play_button.place(x=335,y=150)
+
+        # quirky stuff
+        #Later becomes User's box of wisdom (Says everything you need to know while playing)
+        self.label_player = Label(master, text="  Blackjack! \n So Poggers UwU ~", font = "7")
+        self.label_player.place(x=240, y = 17)
+
+        self.label_talk = Label(master, text="  Place amount of souls you want to gamble here 😘  ",font = "7")
+        self.label_talk.place(x= 100, y = 110)
+
+        #Other important buttons and their placement
+        self.deal_button = Button(master, text="Deal", font="11", command=self.deal,state = 'disabled')
+        self.deal_button.place(x=150, y= 350)
+
+        self.hit_button = Button(master, text="Hit", font="11", command=(self.player_hit), state='disabled')
+        self.hit_button.place(x=300, y= 350)
+        
+      
+        self.stand_button = Button(master, text="Stand", font="11", command=self.stand,state='disabled')
+        self.stand_button.place(x=450, y= 350)
+
+        self.label_win = Label(master, text="",fg="green", bg='black') 
+        self.label_win.place(x = 300, y = 280)
+
+        #Frames to hold cards, draws, and sums
+        self.cards_playerframe = Frame(master,bg="black")
+        self.cards_playerframe.place(x=13,y=65)
+      
+        self.cards_dealerframe = Frame(master,bg="black")
+        self.cards_dealerframe.place(x=180,y=195)
+
+
+        # Ugliest most ineffecient code. Needed to make dealers cards append from right to left. Without this the cards will append right to left, but the frame will also move right. This code keeps frame in place by having black cards occupy 5 columns. Sneaky black cards will be replaced by actual cards later     
+        self.black = PhotoImage(file="cards/black.png")
+        self.black = self.black.subsample(7, 7)
+        self.label = Label(self.cards_dealerframe, image = self.black, bg="black")
+        self.label.grid(row=0,column=1)
+        
+        self.black = PhotoImage(file="cards/black.png")
+        self.black = self.black.subsample(7, 7)
+        self.label = Label(self.cards_dealerframe, image = self.black, bg="black")
+        self.label.grid(row=0,column=2)
+      
+        self.black = PhotoImage(file="cards/black.png")
+        self.black = self.black.subsample(7, 7)
+        self.label = Label(self.cards_dealerframe, image = self.black, bg="black")
+        self.label.grid(row=0,column=3)
+
+        self.black = PhotoImage(file="cards/black.png")
+        self.black = self.black.subsample(7, 7)
+        self.label = Label(self.cards_dealerframe, image = self.black, bg="black")
+        self.label.grid(row=0,column=4)
+      
+        self.black = PhotoImage(file="cards/black.png")
+        self.black = self.black.subsample(7, 7)
+        self.label = Label(self.cards_dealerframe, image = self.black, bg="black")
+        self.label.grid(row=0,column=5)
+    
+#in to the unknown
+  def new_window(self):
+            #gets # of souls gambled so it can check validity
+            self.gambled = self.soul_gamble.get()
+      
+    #Checks validity
+            try:
+                
+            #good input
+              if len(self.soul_gamble.get())!=0 and int(self.gambled) !=0 and int(self.gambled) <= self.souls_total and self.gambled.isnumeric():
+                 self.deal_button.config(state='normal')
+                 self.soul_gamble.destroy()
+                 self.play_button.destroy()
+                 self.label_talk.config(text="  Press the Deal button to play! OhOohHohoHooho!!  ")
+                  
+            #bad inputs
+              elif len(self.soul_gamble.get())!=0 and int(self.gambled) !=0 and int(self.gambled) > self.souls_total and self.gambled.isnumeric():
+                self.label_talk.config(text="  You don't have that many souls!!! Touch grass.......  ")
+              else:
+                self.label_talk.config(text="  I- huh- girll- whait what? Holy sh*1 enter a valid input!  ")
+            except ValueError:
+              self.label_talk.config(text="  I- huh- girll whattt? Holy shi*1 enter a valid input!!!  ")
+
+                
+#functions:
+#when you lose round but have souls left
+  def losescreen(self): 
+    self.newWindow = Toplevel(self.master,height=420, width=860)
+    self.app = Lose(self.newWindow,self.gambled)
+
+#when you loose game (no souls left)
+  def losescreen2(self):
+    self.newWindow = Toplevel(self.master,height=420, width=860)
+    self.app = Lose2(self.newWindow,self.gambled)
+
+#when you win round but don't have a total of 10 souls      
+  def winscreen(self):
+    self.newWindow = Toplevel(self.master,height=420, width=860)
+    self.app = Win(self.newWindow,self.gambled)
+      
+#You have 10 or more souls and win the game
+  def winscreen2(self):
+    self.newWindow = Toplevel(self.master,height=420, width=860)
+    self.app = Win2(self.newWindow,self.gambled)
+
+      
+# dealing cards     
+  def deal(self):
+      #button states
+      self.deal_button.config(state='disabled')
+      self.label_talk.destroy()
+      self.hit_button.config(state='normal')
+      self.stand_button.config(state='normal')
+
+#give player two starting cards
+      for player in range (1):
+#card1
+          #chooses #
+          self.player_num1 = (random.randint(1,13))
+        #chooses the type of card (c,s,d,h)
+          letter = random.choice(tuple(self.cards))
+        #combines # and card type to access the card's image
+          self.player_card1 = "cards/%s%s.png" % (self.player_num1,letter)
+          
+        # face cards only have a value of 10 in BJ
+          if self.player_card1 == "cards/11%s.png"%(letter) or self.player_card1 == "cards/12%s.png"%(letter) or self.player_card1 == "cards/13%s.png"%(letter):
+             #adds it to list 
+              self.player_num1 = 10
+              self.player_points.append(self.player_num1)
+              
+              #Ace can be 11 or 1 depending on player's choice. We don't want to give them rights so we give them best case scenario. Best option have Ace = 11 when total is already =< 10. Since it is first card we don't have to worry about total.  
+          if self.player_card1 == "cards/1%s.png"%(letter):
+              self.player_num1 = 11
+              self.player_points.append(self.player_num1)
+
+        #normal number cards
+          elif                             self.player_card1 == "cards/1%s.png"%(letter) or self.player_card1 == "cards/2%s.png"%(letter) or self.player_card1 == "cards/3%s.png"%(letter) or self.player_card1 == "cards/4%s.png"%(letter) or self.player_card1 == "cards/5%s.png"%(letter) or self.player_card1 == "cards/6%s.png"%(letter) or self.player_card1 == "cards/7%s.png"%(letter) or self.player_card1 == "cards/8%s.png"%(letter) or self.player_card1 == "cards/9%s.png"%(letter) or self.player_card1 == "cards/10%s.png"%(letter):
+              self.player_points.append(self.player_num1)
+
+         
+#card2 same thing but Ace can take values 1 or 11
+          self.player_num2 = (random.randint(1,13))
+          letter2 = random.choice(tuple(self.cards))
+          self.player_card2 = "cards/%s%s.png" % (self.player_num2,letter2)
+          
+          if self.player_card2 == "cards/11%s.png"%(letter2) or self.player_card2 == "cards/12%s.png"%(letter2) or self.player_card2 == "cards/13%s.png"%(letter2):
+              self.player_num2 = 10
+              
+        #max total is 22 (ace + ace) all other possibilities of two starting cards are 21 and lower. :. We need to make second ace 11 at all times unless player_card1 is an ace.
+          if self.player_card2 == "cards/1%s.png"%(letter) and self.player_points[0]!=11:
+              self.player_num1 = 11
+              self.player_points.append(self.player_num2)
+              
+          else: 
+              self.player_points.append(self.player_num2)
+              
+      #Label for player starting cards        
+      self.label_player.config(text="  Your Cards: \n%s and %s\nTotal: %d" % (self.player_num1,self.player_num2,sum(self.player_points)))
+
+#Images for player starting cards
+      #1
+      self.pcard1 = PhotoImage(file=self.player_card1)
+      self.pcard1 = self.pcard1.subsample(7, 7)
+      self.label = Label(self.cards_playerframe, image=self.pcard1,bg="black") 
+      self.label.grid(row=0,column=1)
+      #2
+      self.pcard2 = PhotoImage(file=self.player_card2)
+      self.pcard2 = self.pcard2.subsample(7, 7)
+      self.label = Label(self.cards_playerframe, image=self.pcard2,bg="black") 
+      self.label.grid(row=0,column=2)
+      
+#same thing as 'for player in range (1)' but for dealer (also dealer second card should be hidden)      
+      for dealer in range (1):
+#card1
+          self.dealer_num1 = (random.randint(1,13))
+        #chooses the type of card (c,s,d,h)
+          letter = random.choice(tuple(self.cards))
+        #combines # and card type to access the card's image
+          self.dealer_card1 = "cards/%s%s.png" % (self.dealer_num1,letter)
+          
+        # face cards only have a value of 10 in BJ
+          if self.dealer_card1 == "cards/11%s.png"%(letter) or self.dealer_card1 == "cards/12%s.png"%(letter) or self.dealer_card1 == "cards/13%s.png"%(letter):
+             #adds it to list 
+              self.dealer_num1 = 10
+              self.dealer_points.append(self.dealer_num1)
+              
+              #Ace can be 11 or 1 depending on dealer's choice. We don't want to give them rights so we give them best case scenario. Best option have Ace = 11 when total is already =< 10. Since it is first card we don't have to worry about total.  
+          if self.dealer_card1 == "cards/1%s.png"%(letter):
+              self.dealer_num1 = 11
+              self.dealer_points.append(self.dealer_num1)
+
+        #normal number cards
+          elif                             self.dealer_card1 == "cards/1%s.png"%(letter) or self.dealer_card1 == "cards/2%s.png"%(letter) or self.dealer_card1 == "cards/3%s.png"%(letter) or self.dealer_card1 == "cards/4%s.png"%(letter) or self.dealer_card1 == "cards/5%s.png"%(letter) or self.dealer_card1 == "cards/6%s.png"%(letter) or self.dealer_card1 == "cards/7%s.png"%(letter) or self.dealer_card1 == "cards/8%s.png"%(letter) or self.dealer_card1 == "cards/9%s.png"%(letter) or self.dealer_card1 == "cards/10%s.png"%(letter):
+              self.dealer_points.append(self.dealer_num1)
+              
+#card2 same thing but Ace can take values 1 or 11
+          self.dealer_num2 = (random.randint(1,13))
+          letter2 = random.choice(tuple(self.cards))
+          self.dealer_card2 = "cards/%s%s.png" % (self.dealer_num2,letter2)
+          
+          if self.dealer_card2 == "cards/11%s.png"%(letter2) or self.dealer_card2 == "cards/12%s.png"%(letter2) or self.dealer_card2 == "cards/13%s.png"%(letter2):
+              self.dealer_num2 = 10
+              
+              
+          if self.dealer_card2 == "cards/1%s.png"%(letter) and self.dealer_points[0]!=11:
+              self.dealer_num1 = 11
+              self.dealer_points.append(self.dealer_num2)
+              
+          else:    
+              self.dealer_points.append(self.dealer_num2)
+
+      #Sans's box of wisdom that tells user all they need to know about her
+      self.label_dealer = Label(self.master, text="", font = "7")
+      self.label_dealer.place(x=25, y = 235)
+      self.label_dealer.config(text="  Sans's Cards: \n %s and hidden \nTotal: ? " % (self.dealer_num1))
+      
+
+
+#Images for dealer starting cards
+      #1
+      self.dcard1 = PhotoImage(file=self.dealer_card1)
+      self.dcard1 = self.dcard1.subsample(7, 7)
+      self.label = Label(self.cards_dealerframe, image=self.dcard1,bg="black") 
+      self.label.grid(row=0,column=5)
+      #2 (hidden card)
+      self.dcard2 = PhotoImage(file='cards/cardback.png')
+      self.dcard2 = self.dcard2.subsample(7, 7)
+      self.label = Label(self.cards_dealerframe, image=self.dcard2,bg="black") 
+      self.label.grid(row=0,column=4)
+      
+#function when hit button clicked
+  def player_hit(self): 
+        #Gets list of cards
+        new = self.deck1[0]
+        self.player_sum += new.value
+        self.hand1.append(new)
+        self.deck1.pop(0)   
+
+        #gets picture of the first card in the list
+        photo = PhotoImage(file=new.filename)
+        photo = photo.subsample(7, 7)
+        new.label = Label(self.cards_playerframe, image=photo)        
+        new.label.photo = photo
+        new.label.grid(row=0,column=3+self.hand1.index(new)) #column = 3+#of cards in hand. new card will start on column 3 then for evey card after it increases by 1. column = 3,4,5..
+
+#revaluing cards again but for the cards after first 2 (more efficient)      
+        #takes value from card through (new) face cards have value of 10   
+        if new.value == 11 or new.value == 12 or new.value == 13:
+            self.value = 10
+            self.player_points.append(self.value)
+            
+        #number cards have value of number on card 
+        elif new.value == 1 or new.value == 2 or new.value ==  3 or new.value ==  4 or new.value ==  5 or new.value ==  6 or new.value ==  7 or new.value ==  8 or new.value == 9 or new.value == 10:    
+            self.value = new.value
+            self.player_points.append(self.value)
+
+        #player widom box tells what card you drew and your total
+        self.label_player.config(text = "You drew %s, \n  your total is %d " % (new.value,sum(self.player_points)))
+
+      
+#when user looses by hitting too much      
+        if sum(self.player_points) > 21:
+
+            #waits.6 seconds to change button states and direct you to a lose screen
+            root.after(600)
+            self.label_win.config(text = "You Lose!")
+            self.hit_button.config(state='disable')
+            self.stand_button.config(state='disable')
+
+            #gets sum of souls assuming you lost (which you did because it's under this lovely if statement)
+            self.souls_t = int(self.souls_total) - int(self.gambled)
+            
+            #Takes to losescreen1 if you still have souls
+            if self.souls_t > 0:
+            #need to add window lose function
+              root.after(3000, self.losescreen)
+              root.after(4000, self.reset)
+
+            #Takes to losescreen2 if you have no souls (Iconify hides master window, so that you can't play again)
+            elif self.souls_t == 0:
+                root.after(4000,self.master.iconify)
+                root.after(3000, self.losescreen2)
+                
+
+# When you are satisified with your cards and want to stand    
+  def stand(self):
+      #button states
+      self.hit_button.config(state='disable')
+      self.stand_button.config(state='disable')
+#showing hidden card and total
+      self.label_dealer.config(text="  Sans's Cards: \n %s and %s \nTotal: %d " % (self.dealer_num1,self.dealer_num2,sum(self.dealer_points)))
+    
+      #Unhides Dealer's card 2 
+      self.dcard2 = PhotoImage(file=self.dealer_card2)
+      self.dcard2 = self.dcard2.subsample(7, 7)
+      self.label = Label(self.cards_dealerframe, image=self.dcard2,bg="black") 
+      self.label.grid(row=0,column=4)
+
+      #after 2 seconds, dealer begins hitting
+      root.after(2000,self.dealer_hit)    
+
+  def dealer_hit(self):
+      #If dealer's card1 + card2 are already better than players cards 
+      if sum(self.dealer_points) > sum(self.player_points) and sum(self.dealer_points) <= 21:
+            self.label_dealer.config(text= "Sans's Total: %d" % sum(self.dealer_points))
+            root.after(2000,self.label_win.config(text = "You Lose!"))
+            
+            #gets sum of souls assuming you lost (which you did because it's under this lovely if statement)
+            self.souls_t = int(self.souls_total) - int(self.gambled)
+          
+            #Takes to losescreen1 if you still have souls
+            if self.souls_t > 0:
+            #need to add window lose function
+              root.after(3000, self.losescreen)
+              root.after(4000, self.reset)
+
+            #Takes to losescreen2 if you have no souls (Iconify hides master window, so that you can't play again)
+            elif self.souls_t == 0:
+                root.after(4000,self.master.iconify)
+                root.after(3000, self.losescreen2)
+     
+      
+      #Dealer wins if they match user's total
+      elif sum(self.dealer_points) == sum(self.player_points):
+         
+        self.label_dealer.config(text= "Sans's Total: %d" % sum(self.dealer_points))
+        root.after(2000,self.label_win.config(text = "You Lose!"))
+
+        #already explained like 2 times
+        self.souls_t = int(self.souls_total) - int(self.gambled)
+        if self.souls_t > 0:
+              root.after(3000, self.losescreen)
+              root.after(4000, self.reset)
+        elif self.souls_t == 0:
+              root.after(4000,self.master.iconify)
+              root.after(3000, self.losescreen2)
+                    
+      #If dealer accidentally hits over 21      
+      elif sum(self.dealer_points) > 21:
+            self.label_win.config(text = "You Win!")
+
+            #gets amt of souls after you win (beginning + gambled)
+            self.souls_t = int(self.souls_total) + int(self.gambled) 
+            #If less than 10, game not over 
+            if self.souls_t < 7:
+              root.after(3000, self.winscreen)
+              root.after(4000, self.reset)
+            #10 or more, game over and playing screen hides
+            elif self.souls_t >= 7:
+              root.after(4000,self.master.iconify)
+              root.after(3000, self.winscreen2)
+     
+      #How dealer hits      
+      else: 
+#same as for player_hit except for dealer
+            new = self.deck2[0]
+            self.hand2.append(new)
+            self.deck2.pop(0)   
+              
+            photo = PhotoImage(file=new.filename)
+            photo = photo.subsample(7, 7)
+            new.label = Label(self.cards_dealerframe, image=photo)       
+            new.label.photo = photo
+            #only difference is that Dealers cards are displayed right to left.
+            new.label.grid(row=0,column=3-self.hand2.index(new))
+
+            if new.value == 11 or new.value == 12 or new.value == 13:
+                self.value = 10
+                self.dealer_points.append(self.value)
+            
+            elif new.value == 1 or new.value == 2 or new.value ==  3 or new.value ==  4 or new.value ==  5 or new.value ==  6 or new.value ==  7 or new.value ==  8 or new.value == 9 or new.value == 10:    
+                self.value = new.value
+                self.dealer_points.append(self.value)
+          
+                
+            #Wisdom box
+            self.label_dealer.config(text = "Sans's Cards: \n %s \n Its total is %d " % (self.dealer_points,sum(self.dealer_points)))
+            
+            #After 3 seconds code will go through the dealer hit function again and again till a win or lose outcome
+            root.after(2000, self.dealer_hit)
+            
+
+
+  def reset(self):
+      #disable the hit and stand buttons and deal
+      self.hit_button.config(state='disable')
+      self.stand_button.config(state='disable')
+      self.deal_button.config(state= 'disable')
+
+      #set self.player_points and self.dealer_points back to an empty list
+      self.player_points.clear()
+      self.dealer_points.clear()
+      self.hand1.clear()
+      self.hand2.clear()
+
+      
+
+      #set all labels back to a default message state, either blank or "Deal to Play!"
+     
+      self.souls_total  = self.app.souls_total
+      self.souls_amount.config(text ="%d" %self.souls_total)
+      self.label_player.config(text="Blackjack!")
+      self.label_win.config(text="") 
+
+      self.soul_gamble = Entry(self.master,bg="light gray",bd=7,font="Times 9 italic",fg="red",width=10)
+      self.soul_gamble.place(x = 220, y = 150)
+        
+      self.play_button = Button(self.master, text = "Play", command = self.new_window, font= "Times 12 italic", bg="white",fg="green",activebackground="gray")
+      self.play_button.place(x=335,y=150)
+
+      self.label_player = Label(self.master, text="  Blackjack! \n So Poggers UwU ~", font = "7")
+      self.label_player.place(x=240, y = 17)
+
+      self.label_dealer.config(text = "")
+      self.label_talk = Label(self.master, text="  Place amount of souls you want to gamble here 😘  ",font = "7")
+      self.label_talk.place(x= 100, y = 110)
+      
+
+    #Destryoying old things    
+      self.label_dealer.destroy()
+      self.cards_dealerframe.destroy()
+      self.cards_playerframe.destroy()
+
+      #Bringing fresh frames since 2022
+      self.cards_playerframe = Frame(self.master,bg="black")
+      self.cards_playerframe.place(x=13,y=65)
+      
+      self.cards_dealerframe = Frame(self.master,bg="black")
+      self.cards_dealerframe.place(x=180,y=195)
+
+      #ugly sneaky code to make dealer's cards go right to left
+      self.black = PhotoImage(file="cards/black.png")
+      self.black = self.black.subsample(7, 7)
+      self.label = Label(self.cards_dealerframe, image = self.black, bg="black")
+      self.label.grid(row=0,column=1)
+        
+      self.black = PhotoImage(file="cards/black.png")
+      self.black = self.black.subsample(7, 7)
+      self.label = Label(self.cards_dealerframe, image = self.black, bg="black")
+      
+      self.label.grid(row=0,column=2)
+      self.black = PhotoImage(file="cards/black.png")
+      self.black = self.black.subsample(7, 7)
+      self.label = Label(self.cards_dealerframe, image = self.black, bg="black")
+      self.label.grid(row=0,column=3)
+
+      self.black = PhotoImage(file="cards/black.png")
+      self.black = self.black.subsample(7, 7)
+      self.label = Label(self.cards_dealerframe, image = self.black, bg="black")
+      self.label.grid(row=0,column=4)
+      
+      self.black = PhotoImage(file="cards/black.png")
+      self.black = self.black.subsample(7, 7)
+      self.label = Label(self.cards_dealerframe, image = self.black, bg="black")
+      self.label.grid(row=0,column=5)
+ 
+#When you win one round, doesn't take you out of the game but you win the round
+class Win:
+    
+    def __init__(self, master,win):
+        #setup and calculating new souls
+        self.master = master
+        master.title("? ")
+        master.geometry("600x400")
+        self.win = int(win)
+        souls.append(self.win)
+        self.souls_total = sum(souls) - sum(souls_lost)
+        img = PhotoImage(file="images/win1.png")
+        self.background = Label(master,image=img)
+        self.background.photo = img
+        self.background.place(x=-1, y=0) 
+        #message
+        self.label_win = Label(master, text = """Good job on securing %d soul(s). 
+You now have %d souls. 
+But how much longer will it take to get out :)"""% (self.win,self.souls_total),font = "Times 15 bold italic", bg="white")
+
+        #window kills itself
+        self.label_win.place(x=50,y=200)
+        root.after(3000, lambda: self.master.destroy())
+        
+        
+
+#first losing screen, doesn't take you out of the game but you lose the round
+class Lose:
+   
+  def __init__(self,master,loss):
+        #window setup and calculating new souls
+        self.master = master
+        master.title("?? ")
+        master.geometry("600x400")
+        self.loss = int(loss)
+        souls_lost.append(self.loss)
+        self.souls_total = sum(souls) - sum(souls_lost)
+        img = PhotoImage(file="images/sans2.png")
+        self.background = Label(master,image=img)
+        self.background.photo = img
+        self.background.place(x=-1, y=0) 
+      #messagee
+        self.label_lose = Label(master, text = """Oh no you lost %d soul(s). 
+Don't Mess up. 
+Only %d souls left :)"""% (self.loss,self.souls_total),font = "Times 15 bold italic", bg="white")
+        self.label_lose.place(x=50,y=20)   
+      #kills itself
+        root.after(3000, lambda: self.master.destroy())
+      
+#Ultimate Win!
+class Win2:
+    def __init__(self, master,win):
+        #setup and yay
+        self.master = master
+        master.title("xxx ")
+        master.geometry("600x400")
+        self.win = int(win)
+        souls.append(self.win)
+        self.souls_total = sum(souls) - sum(souls_lost)
+        img = PhotoImage(file="images/happy.png")
+        self.background = Label(master,image=img)
+        self.background.photo = img
+        self.background.place(x=0, y=0) 
+
+        
+#Ultimate Lose!   
+class Lose2:
+    def __init__(self,master,loss):
+        #setup and kys
+        self.master = master
+        master.title("x?x ")
+        master.geometry("600x400")
+        self.loss = int(loss)
+        souls_lost.append(self.loss)
+        self.souls_total = sum(souls) - sum(souls_lost)
+        img = PhotoImage(file="images/greed.png")
+        self.background = Label(master,image=img)
+        self.background.photo = img
+        self.background.place(x=-1, y=0) 
+        self.label_lose = Label(master, text = """YOU LOST!
+NOW DIE OVER 
+AND OVER 
+AND OVER
+""",font = "Times 15 bold italic", bg="white")
+        self.label_lose.place(x = 0, y=100)
+
+#Tkinter stuff
+root = Tk()
+my_gui = Intro(root)
+root.geometry("600x400")
+root.mainloop()
+
+
+
+
+"""I need sleep."""
+
+
+  
